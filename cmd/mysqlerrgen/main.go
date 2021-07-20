@@ -72,7 +72,7 @@ func run() error {
 			line = trimDelimiters(line)
 			offsetStr, rest := consumeWord(line)
 			if rest != "" {
-				// error
+				return fmt.Errorf("invalid format: %q", s.Text())
 			}
 			errorCodeOffset, _ = strconv.Atoi(offsetStr)
 			rCount = 0
@@ -81,7 +81,7 @@ func run() error {
 			line = trimDelimiters(line)
 			shortName, rest := consumeWord(line)
 			if rest != "" {
-				// error
+				return fmt.Errorf("invalid format: %q", s.Text())
 			}
 			defaultLanguage = shortName
 		case strings.HasPrefix(line, "\t"), strings.HasPrefix(line, " "):
@@ -94,9 +94,12 @@ func run() error {
 			}
 			line = strings.TrimLeft(line, " \t")
 			if !strings.HasPrefix(line, `"`) {
-				// Unexpected EOL
+				return fmt.Errorf("unexpected EOL: %q", s.Text())
 			}
-			text := parseQuoted(line[1:])
+			text, err := parseQuoted(line[1:])
+			if err != nil {
+				return fmt.Errorf("parse quote(%q): %w", s.Text(), err)
+			}
 			curErr := &errs[len(errs)-1]
 			curErr.messages = append(curErr.messages, message{
 				langShortName: langShortName,
@@ -123,7 +126,7 @@ func run() error {
 		case strings.HasPrefix(line, "reserved-error-section"):
 		default:
 			// unknown format
-			panic("unknown format: " + strconv.Quote(line))
+			return fmt.Errorf("unknown format: %q", line)
 		}
 	}
 	_ = defaultLanguage
@@ -186,12 +189,12 @@ func parseLanguage(s string) []language {
 	return languages
 }
 
-func parseQuoted(s string) string {
+func parseQuoted(s string) (string, error) {
 	var b strings.Builder
 	r := []rune(s)
 	for i := 0; i < len(r); i++ {
 		if r[i] == '"' {
-			return b.String()
+			return b.String(), nil
 		}
 		if r[i] == '\\' && i+1 < len(r) {
 			i++
@@ -215,7 +218,7 @@ func parseQuoted(s string) string {
 			b.WriteRune(r[i])
 		}
 	}
-	panic("unexpected EOL")
+	return "", fmt.Errorf("unexpected EOL")
 }
 
 func writeLicense(w io.Writer) {
