@@ -119,7 +119,7 @@ func run() error {
 				code:      errorCode,
 				sqlState:  sqlState,
 				odbcState: odbcState,
-				obsolete:  strings.HasPrefix(errorName, "OBSOLETE_ER_"),
+				obsolete:  strings.HasPrefix(errorName, "OBSOLETE_"),
 			})
 		case strings.HasPrefix(line, "#"), line == "":
 			// comment
