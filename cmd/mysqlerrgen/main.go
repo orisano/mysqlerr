@@ -145,6 +145,10 @@ func run() error {
 	writeLicense(f)
 	fmt.Fprintln(f, "package", *pkg)
 	for _, mysqlErr := range errs {
+		if mysqlErr.obsolete {
+			fmt.Fprintln(f, "// Deprecated: should not be used")
+			fmt.Fprintln(f, "const", strings.TrimPrefix(mysqlErr.name, "OBSOLETE_"), "=", mysqlErr.code)
+		}
 		fmt.Fprintln(f, "const", mysqlErr.name, "=", mysqlErr.code)
 	}
 	if err := f.Close(); err != nil {
