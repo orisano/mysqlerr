@@ -226,7 +226,7 @@ func parseQuoted(s string) (string, error) {
 }
 
 func writeLicense(w io.Writer) {
-	fmt.Fprintln(w, `// Copyright (C) 2021 Nao Yonashiro 
+	fmt.Fprintln(w, `// Copyright (C) 2021-2023 Nao Yonashiro 
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
