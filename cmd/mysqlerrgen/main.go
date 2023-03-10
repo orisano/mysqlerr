@@ -141,13 +141,23 @@ func run() error {
 	}
 	defer f.Close()
 
+	usedNames := map[string]bool{}
+	for _, mysqlErr := range errs {
+		usedNames[mysqlErr.name] = true
+	}
+
 	fmt.Fprintln(f, "// Code generated mysqlerrgen DO NOT EDIT.")
 	writeLicense(f)
 	fmt.Fprintln(f, "package", *pkg)
 	for _, mysqlErr := range errs {
 		if mysqlErr.obsolete {
-			fmt.Fprintln(f, "// Deprecated: should not be used")
-			fmt.Fprintln(f, "const", strings.TrimPrefix(mysqlErr.name, "OBSOLETE_"), "=", mysqlErr.code)
+			oldName := strings.TrimPrefix(mysqlErr.name, "OBSOLETE_")
+			if !usedNames[oldName] {
+				fmt.Fprintln(f, "// Deprecated: should not be used")
+				fmt.Fprintln(f, "const", oldName, "=", mysqlErr.code)
+
+				usedNames[oldName] = true
+			}
 		}
 		fmt.Fprintln(f, "const", mysqlErr.name, "=", mysqlErr.code)
 	}
