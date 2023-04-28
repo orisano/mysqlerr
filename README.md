@@ -9,4 +9,4 @@ go get -u github.com/orisano/mysqlerr/...
 Nao Yonashiro
 
 ## License
-GPL 2.0
+MIT
