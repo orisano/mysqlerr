@@ -135,29 +135,29 @@ func run() error {
 	if err := os.MkdirAll(*pkg, 0777); err != nil {
 		return fmt.Errorf("make package dir: %w", err)
 	}
-	f, err := os.Create(filepath.Join(*pkg, "constants.go"))
+
+	cs := &constants{}
+	constantsPath := filepath.Join(*pkg, "constants.go")
+	if _, err := os.Stat(constantsPath); err == nil {
+		cs, err = parseConstantsGo(constantsPath)
+		if err != nil {
+			return fmt.Errorf("parse constants.go: %w", err)
+		}
+	}
+
+	f, err := os.Create(constantsPath)
 	if err != nil {
 		return fmt.Errorf("create constants.go: %w", err)
 	}
 	defer f.Close()
 
-	usedNames := map[string]bool{}
-	for _, mysqlErr := range errs {
-		usedNames[mysqlErr.name] = true
-	}
-
 	fmt.Fprintln(f, "// Code generated mysqlerrgen DO NOT EDIT.")
 	writeLicense(f)
 	fmt.Fprintln(f, "package", *pkg)
 	for _, mysqlErr := range errs {
-		if mysqlErr.obsolete {
-			oldName := strings.TrimPrefix(mysqlErr.name, "OBSOLETE_")
-			if !usedNames[oldName] {
-				fmt.Fprintln(f, "// Deprecated: should not be used")
-				fmt.Fprintln(f, "const", oldName, "=", mysqlErr.code)
-
-				usedNames[oldName] = true
-			}
+		for _, d := range cs.deprecates(mysqlErr.name, mysqlErr.code) {
+			fmt.Fprintln(f, "// Deprecated: should not be used")
+			fmt.Fprintln(f, "const", d.name, "=", d.code)
 		}
 		fmt.Fprintln(f, "const", mysqlErr.name, "=", mysqlErr.code)
 	}
@@ -251,4 +251,54 @@ func writeLicense(w io.Writer) {
 // You should have received a copy of the GNU General Public License along
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.`)
+}
+
+type constants struct {
+	byName map[string]int
+	byCode map[int][]string
+}
+
+func (c *constants) add(name string, code int) {
+	if c.byName == nil {
+		c.byName = map[string]int{}
+	}
+	c.byName[name] = code
+	if c.byCode == nil {
+		c.byCode = map[int][]string{}
+	}
+	c.byCode[code] = append(c.byCode[code], name)
+}
+
+func (c *constants) deprecates(name string, code int) []mysqlError {
+	var ds []mysqlError
+	names := c.byCode[code]
+	for _, n := range names {
+		if n == name {
+			continue
+		}
+		ds = append(ds, mysqlError{name: n, code: code})
+	}
+	return ds
+}
+
+func parseConstantsGo(name string) (*constants, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var c constants
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		line := s.Text()
+		if !strings.HasPrefix(line, "const ") {
+			continue
+		}
+		tokens := strings.Split(line, " ")
+		key := tokens[1]
+		val, _ := strconv.Atoi(tokens[3])
+		c.add(key, val)
+	}
+	return &c, nil
 }
